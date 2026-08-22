@@ -1,0 +1,566 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Capacity & Timeline Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F5F6F1; --paper-2:#ECEEE6; --paper-3:#E2E5DB;
+    --ink:#1C2B33; --ink-soft:#56676E; --ink-faint:#8A98A0;
+    --grid:#CBD3C6; --line:#D7DCD0;
+    --blue:#2F6F8F; --blue-soft:#E2EDF1; --blue-deep:#1F4E64;
+    --amber:#D9922F; --amber-soft:#F6E9D3;
+    --coral:#C85446; --coral-soft:#F5DEDA;
+    --green:#4C8567; --green-soft:#DEEBE2;
+    --sans:'IBM Plex Sans',sans-serif; --display:'Space Grotesk',sans-serif; --mono:'IBM Plex Mono',monospace;
+    --radius:3px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--paper);color:var(--ink);font-family:var(--sans);height:100%;}
+  button{font-family:var(--sans);cursor:pointer;}
+  input,select{font-family:var(--sans);}
+
+  /* ---------- Setup screen ---------- */
+  #setup{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:
+    repeating-linear-gradient(0deg, var(--paper) 0px, var(--paper) 23px, var(--line) 23px, var(--line) 24px),
+    repeating-linear-gradient(90deg, transparent 0px, transparent 23px, var(--line) 23px, var(--line) 24px);
+  }
+  .setup-card{width:100%;max-width:480px;background:var(--paper);border:1px solid var(--grid);border-radius:var(--radius);padding:32px;box-shadow:0 2px 0 var(--grid);}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--blue-deep);margin-bottom:8px;}
+  .setup-card h1{font-family:var(--display);font-size:26px;margin:0 0 6px;letter-spacing:-.01em;}
+  .setup-card p{color:var(--ink-soft);font-size:14px;line-height:1.55;margin:0 0 20px;}
+  .setup-card label{display:block;font-size:12px;font-family:var(--mono);color:var(--ink-soft);margin-bottom:6px;}
+  .setup-card input[type=text]{width:100%;padding:10px 12px;border:1px solid var(--grid);border-radius:var(--radius);background:#fff;font-size:13px;font-family:var(--mono);margin-bottom:14px;}
+  .btn{display:inline-flex;align-items:center;gap:6px;padding:10px 16px;border-radius:var(--radius);border:1px solid var(--ink);background:var(--ink);color:var(--paper);font-size:13px;font-weight:600;transition:transform .08s;}
+  .btn:hover{transform:translateY(-1px);}
+  .btn-ghost{background:transparent;color:var(--ink);border:1px solid var(--grid);}
+  .btn-block{width:100%;justify-content:center;}
+  .setup-foot{display:flex;flex-direction:column;gap:8px;margin-top:6px;}
+  .setup-note{font-size:12px;color:var(--ink-faint);margin-top:16px;line-height:1.5;}
+  #setupError{font-size:12px;color:var(--coral);margin:-8px 0 12px;display:none;}
+
+  /* ---------- App shell ---------- */
+  #app{display:none;height:100vh;grid-template-columns:260px 1fr;}
+  #app.active{display:grid;}
+  aside.sidebar{background:var(--paper-2);border-right:1px solid var(--grid);display:flex;flex-direction:column;overflow-y:auto;}
+  .brand{padding:18px 18px 14px;border-bottom:1px solid var(--grid);}
+  .brand .eyebrow{margin-bottom:2px;}
+  .brand h2{font-family:var(--display);font-size:16px;margin:0;}
+  .panel{padding:16px 18px;border-bottom:1px solid var(--grid);}
+  .panel h3{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 10px;display:flex;justify-content:space-between;align-items:center;}
+  .add-btn{width:20px;height:20px;border-radius:50%;border:1px solid var(--ink-soft);background:transparent;color:var(--ink-soft);display:flex;align-items:center;justify-content:center;font-size:14px;line-height:1;}
+  .add-btn:hover{border-color:var(--ink);color:var(--ink);}
+  .roster-item{display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13px;}
+  .swatch{width:9px;height:9px;border-radius:2px;flex-shrink:0;}
+  .roster-item .meta{color:var(--ink-faint);font-family:var(--mono);font-size:11px;}
+  .roster-item .name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .roster-item .del{opacity:0;color:var(--coral);background:none;border:none;font-size:14px;padding:2px 4px;}
+  .roster-item:hover .del{opacity:1;}
+  .sync-box{margin-top:auto;padding:14px 18px;border-top:1px solid var(--grid);font-size:11px;font-family:var(--mono);color:var(--ink-faint);}
+  .sync-box .dot{width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block;margin-right:6px;}
+  .sync-box .dot.off{background:var(--ink-faint);}
+  .sync-box button{background:none;border:none;color:var(--blue-deep);font-family:var(--mono);font-size:11px;padding:0;margin-top:6px;text-decoration:underline;}
+
+  main{display:flex;flex-direction:column;overflow:hidden;}
+  .toolbar{display:flex;align-items:center;gap:16px;padding:14px 24px;border-bottom:1px solid var(--grid);background:var(--paper);}
+  .tabs{display:flex;border:1px solid var(--grid);border-radius:var(--radius);overflow:hidden;}
+  .tabs button{padding:8px 16px;border:none;background:var(--paper);font-size:13px;font-weight:600;color:var(--ink-soft);}
+  .tabs button.active{background:var(--ink);color:var(--paper);}
+  .week-nav{display:flex;align-items:center;gap:10px;margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--ink-soft);}
+  .week-nav button{width:26px;height:26px;border:1px solid var(--grid);background:#fff;border-radius:var(--radius);}
+  .week-nav button:hover{border-color:var(--ink);}
+  main .content{flex:1;overflow:auto;padding:20px 24px 40px;}
+
+  /* ---------- Capacity grid ---------- */
+  .cap-grid{border:1px solid var(--grid);border-radius:var(--radius);overflow:hidden;background:#fff;}
+  .cap-row{display:grid;grid-template-columns:180px repeat(var(--wk,10),minmax(64px,1fr));border-bottom:1px solid var(--line);}
+  .cap-row:last-child{border-bottom:none;}
+  .cap-row.head{background:var(--paper-2);font-family:var(--mono);font-size:10px;color:var(--ink-soft);}
+  .cap-cell{padding:8px 6px;border-left:1px solid var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:52px;}
+  .cap-row.head .cap-cell{min-height:auto;padding:10px 4px;text-align:center;}
+  .cap-name{padding:8px 12px;display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500;}
+  .gauge{width:26px;height:26px;border-radius:50%;position:relative;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:9.5px;font-weight:600;}
+  .gauge svg{position:absolute;inset:0;}
+  .cell-empty{color:var(--ink-faint);font-family:var(--mono);font-size:11px;}
+
+  /* ---------- Timeline / Gantt ---------- */
+  .tl-wrap{border:1px solid var(--grid);border-radius:var(--radius);background:#fff;overflow:hidden;}
+  .tl-header{display:grid;grid-template-columns:180px repeat(var(--wk,10),minmax(64px,1fr));background:var(--paper-2);border-bottom:1px solid var(--grid);font-family:var(--mono);font-size:10px;color:var(--ink-soft);}
+  .tl-header div{padding:8px 4px;text-align:center;border-left:1px solid var(--line);}
+  .tl-header div:first-child{border-left:none;}
+  .tl-row{display:grid;grid-template-columns:180px repeat(var(--wk,10),minmax(64px,1fr));border-bottom:1px solid var(--line);min-height:46px;position:relative;}
+  .tl-row:last-child{border-bottom:none;}
+  .tl-name{padding:8px 12px;display:flex;align-items:center;font-size:13px;font-weight:500;border-right:1px solid var(--line);}
+  .tl-track{position:relative;grid-column:2/-1;}
+  .tl-gridlines{position:absolute;inset:0;display:grid;grid-template-columns:repeat(var(--wk,10),1fr);}
+  .tl-gridlines div{border-left:1px solid var(--line);}
+  .tl-bar{position:absolute;top:8px;height:30px;border-radius:2px;display:flex;align-items:center;padding:0 8px;font-size:11px;font-weight:600;color:#fff;overflow:hidden;white-space:nowrap;}
+  .tl-bar::before,.tl-bar::after{content:'';position:absolute;top:-4px;bottom:-4px;width:1px;background:currentColor;opacity:.55;}
+  .tl-bar::before{left:0;} .tl-bar::after{right:0;}
+
+  /* ---------- Modal ---------- */
+  .overlay{position:fixed;inset:0;background:rgba(28,43,51,.35);display:flex;align-items:center;justify-content:center;z-index:50;}
+  .modal{width:100%;max-width:420px;background:var(--paper);border:1px solid var(--grid);border-radius:var(--radius);padding:24px;box-shadow:0 4px 0 var(--grid);}
+  .modal h3{font-family:var(--display);font-size:17px;margin:0 0 16px;}
+  .field{margin-bottom:12px;}
+  .field label{display:block;font-size:11px;font-family:var(--mono);color:var(--ink-soft);margin-bottom:5px;}
+  .field input,.field select{width:100%;padding:8px 10px;border:1px solid var(--grid);border-radius:var(--radius);font-size:13px;background:#fff;}
+  .field-row{display:flex;gap:10px;}
+  .field-row .field{flex:1;}
+  .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px;}
+  .btn-danger{background:var(--coral);border-color:var(--coral);}
+
+  .empty-note{color:var(--ink-faint);font-size:13px;padding:8px 0;}
+  .toast{position:fixed;bottom:20px;right:20px;background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:var(--radius);font-size:12px;font-family:var(--mono);z-index:80;opacity:0;transform:translateY(6px);transition:.2s;}
+  .toast.show{opacity:1;transform:translateY(0);}
+</style>
+</head>
+<body>
+
+<div id="setup">
+  <div class="setup-card">
+    <div class="eyebrow">Capacity &amp; Timeline Planner</div>
+    <h1>เชื่อมต่อ Google Sheet</h1>
+    <p>วางโค้ด Apps Script (ที่ให้แยกไว้) ลงใน Google Sheet ของคุณ แล้ว Deploy เป็น Web App จากนั้นวาง URL ที่ได้ไว้ที่นี่</p>
+    <div id="setupError"></div>
+    <label>Apps Script Web App URL</label>
+    <input type="text" id="urlInput" placeholder="https://script.google.com/macros/s/xxxx/exec" />
+    <div class="setup-foot">
+      <button class="btn btn-block" id="connectBtn">เชื่อมต่อ</button>
+      <button class="btn btn-ghost btn-block" id="demoBtn">ลองใช้แบบ Demo ก่อน (ไม่เชื่อม Sheet)</button>
+    </div>
+    <div class="setup-note">ยังไม่ได้ตั้งค่า Apps Script? ดูขั้นตอนได้ในไฟล์ <strong>apps_script_backend.gs</strong> ที่แนบมาด้วยกัน — คอมเมนต์ด้านบนไฟล์มีขั้นตอนครบ</div>
+  </div>
+</div>
+
+<div id="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="eyebrow">Studio Plan</div>
+      <h2>Capacity &amp; Timeline</h2>
+    </div>
+    <div class="panel">
+      <h3>Team <button class="add-btn" id="addPersonBtn">+</button></h3>
+      <div id="peopleList"></div>
+    </div>
+    <div class="panel">
+      <h3>Projects <button class="add-btn" id="addProjectBtn">+</button></h3>
+      <div id="projectsList"></div>
+    </div>
+    <div class="sync-box">
+      <div><span class="dot" id="syncDot"></span><span id="syncLabel">เชื่อมกับ Google Sheet</span></div>
+      <button id="refreshBtn">↻ รีเฟรชข้อมูล</button>
+      <button id="changeUrlBtn">เปลี่ยนการเชื่อมต่อ</button>
+    </div>
+  </aside>
+
+  <main>
+    <div class="toolbar">
+      <div class="tabs">
+        <button data-tab="capacity" class="active">Capacity</button>
+        <button data-tab="timeline">Timeline</button>
+      </div>
+      <div class="week-nav">
+        <button id="prevWeek">‹</button>
+        <span id="weekRange">—</span>
+        <button id="nextWeek">›</button>
+      </div>
+      <button class="btn" id="addAssignmentBtn">+ Assignment</button>
+    </div>
+    <div class="content">
+      <div id="capacityView"></div>
+      <div id="timelineView" style="display:none;"></div>
+    </div>
+  </main>
+</div>
+
+<div id="modalRoot"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const PALETTE = ['#2F6F8F','#C85446','#D9922F','#4C8567','#7A5FA6','#3E7C8C','#B5654A','#5C7A3D'];
+let state = { people: [], projects: [], assignments: [] };
+let config = { url: null, mode: null }; // mode: 'sheet' | 'demo'
+let currentTab = 'capacity';
+let weekStart = mondayOf(new Date());
+const WEEKS_SHOWN = 10;
+
+function mondayOf(d){ const x=new Date(d); const day=(x.getDay()+6)%7; x.setDate(x.getDate()-day); x.setHours(0,0,0,0); return x; }
+function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
+function fmt(d){ return d.toISOString().slice(0,10); }
+function shortLabel(d){ return d.toLocaleDateString('th-TH',{day:'2-digit',month:'short'}); }
+function uid(){ return 'id_'+Math.random().toString(36).slice(2,10)+Date.now().toString(36); }
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); }
+
+/* ---------- storage of config (persists browser session for this user) ---------- */
+async function loadConfig(){
+  try{ const r = await window.storage.get('capacity-planner-config', false); return r ? JSON.parse(r.value) : null; }
+  catch(e){ return null; }
+}
+async function saveConfig(cfg){
+  try{ await window.storage.set('capacity-planner-config', JSON.stringify(cfg), false); }catch(e){console.error(e);}
+}
+async function loadLocalData(){
+  try{ const r = await window.storage.get('capacity-planner-demo-data', false); return r ? JSON.parse(r.value) : null; }
+  catch(e){ return null; }
+}
+async function saveLocalData(){
+  try{ await window.storage.set('capacity-planner-demo-data', JSON.stringify(state), false); }catch(e){console.error(e);}
+}
+
+/* ---------- Sheet API ---------- */
+async function fetchAll(){
+  if(config.mode !== 'sheet') return;
+  const res = await fetch(config.url);
+  const data = await res.json();
+  state.people = (data.team||[]).map(p=>({id:p.id,name:p.name,role:p.role,weeklyHours:p.weeklyHours}));
+  state.projects = (data.projects||[]).map(p=>({id:p.id,name:p.name,color:p.color,status:p.status}));
+  state.assignments = (data.assignments||[]).map(a=>({...a, allocationPercent:Number(a.allocationPercent)}));
+}
+async function apiPost(action, payload){
+  if(config.mode !== 'sheet') return {ok:true};
+  const res = await fetch(config.url, {
+    method:'POST',
+    headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body: JSON.stringify(payload ? {action, ...payload} : {action})
+  });
+  return res.json().catch(()=>({ok:true}));
+}
+
+/* ---------- Setup screen wiring ---------- */
+document.getElementById('connectBtn').onclick = async ()=>{
+  const url = document.getElementById('urlInput').value.trim();
+  const errEl = document.getElementById('setupError');
+  errEl.style.display='none';
+  if(!url.startsWith('https://script.google.com/')){
+    errEl.textContent = 'ใส่ Web App URL ที่ถูกต้องจาก Apps Script (ขึ้นต้นด้วย https://script.google.com/...)';
+    errEl.style.display='block'; return;
+  }
+  try{
+    const res = await fetch(url);
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    await res.json();
+  }catch(e){
+    errEl.textContent = 'เชื่อมต่อไม่สำเร็จ ตรวจสอบว่า Deploy เป็น Web App แบบ "Anyone" access แล้ว (' + e.message + ')';
+    errEl.style.display='block'; return;
+  }
+  config = {url, mode:'sheet'};
+  await saveConfig(config);
+  await bootApp();
+};
+document.getElementById('demoBtn').onclick = async ()=>{
+  config = {url:null, mode:'demo'};
+  await saveConfig(config);
+  const existing = await loadLocalData();
+  if(existing) state = existing;
+  else seedDemoData();
+  await bootApp();
+};
+
+function seedDemoData(){
+  const p1=uid(), p2=uid(), p3=uid();
+  const pr1=uid(), pr2=uid();
+  state.people=[
+    {id:p1,name:'พลอย ศรีสุข',role:'Frontend',weeklyHours:40},
+    {id:p2,name:'ต้น วัฒนกิจ',role:'Backend',weeklyHours:40},
+    {id:p3,name:'มายด์ ปิยะ',role:'Design',weeklyHours:32},
+  ];
+  state.projects=[
+    {id:pr1,name:'Website Revamp',color:PALETTE[0],status:'active'},
+    {id:pr2,name:'Mobile App',color:PALETTE[1],status:'active'},
+  ];
+  const mon = mondayOf(new Date());
+  state.assignments=[
+    {id:uid(),personId:p1,projectId:pr1,startDate:fmt(mon),endDate:fmt(addDays(mon,27)),allocationPercent:60,note:''},
+    {id:uid(),personId:p1,projectId:pr2,startDate:fmt(addDays(mon,14)),endDate:fmt(addDays(mon,55)),allocationPercent:50,note:''},
+    {id:uid(),personId:p2,projectId:pr2,startDate:fmt(mon),endDate:fmt(addDays(mon,41)),allocationPercent:80,note:''},
+    {id:uid(),personId:p3,projectId:pr1,startDate:fmt(addDays(mon,7)),endDate:fmt(addDays(mon,34)),allocationPercent:45,note:''},
+  ];
+  saveLocalData();
+}
+
+async function bootApp(){
+  document.getElementById('setup').style.display='none';
+  document.getElementById('app').classList.add('active');
+  document.getElementById('syncDot').classList.toggle('off', config.mode!=='sheet');
+  document.getElementById('syncLabel').textContent = config.mode==='sheet' ? 'เชื่อมกับ Google Sheet' : 'โหมด Demo (ไม่ sync)';
+  if(config.mode==='sheet'){ try{ await fetchAll(); }catch(e){ toast('โหลดข้อมูลไม่สำเร็จ: '+e.message); } }
+  render();
+}
+
+document.getElementById('refreshBtn').onclick = async ()=>{
+  if(config.mode==='sheet'){ await fetchAll(); render(); toast('รีเฟรชแล้ว'); }
+  else { toast('โหมด Demo ไม่มีการ sync'); }
+};
+document.getElementById('changeUrlBtn').onclick = async ()=>{
+  config = {url:null, mode:null};
+  await saveConfig(config);
+  document.getElementById('app').classList.remove('active');
+  document.getElementById('setup').style.display='flex';
+};
+
+/* ---------- Tabs & week nav ---------- */
+document.querySelectorAll('.tabs button').forEach(b=>{
+  b.onclick=()=>{
+    document.querySelectorAll('.tabs button').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active'); currentTab=b.dataset.tab;
+    document.getElementById('capacityView').style.display = currentTab==='capacity'?'block':'none';
+    document.getElementById('timelineView').style.display = currentTab==='timeline'?'block':'none';
+    render();
+  };
+});
+document.getElementById('prevWeek').onclick=()=>{ weekStart=addDays(weekStart,-7*WEEKS_SHOWN); render(); };
+document.getElementById('nextWeek').onclick=()=>{ weekStart=addDays(weekStart,7*WEEKS_SHOWN); render(); };
+
+/* ---------- Sidebar lists ---------- */
+function renderSidebar(){
+  const pl = document.getElementById('peopleList');
+  pl.innerHTML = state.people.length? '' : '<div class="empty-note">ยังไม่มีคนในทีม</div>';
+  state.people.forEach(p=>{
+    const el=document.createElement('div'); el.className='roster-item';
+    el.innerHTML = `<span class="name">${escapeHtml(p.name)}</span><span class="meta">${escapeHtml(p.role||'')}</span><button class="del" title="ลบ">×</button>`;
+    el.querySelector('.del').onclick=async()=>{
+      if(!confirm(`ลบ ${p.name} ออกจากทีม? (assignment ที่เกี่ยวข้องจะไม่ถูกลบอัตโนมัติ)`))return;
+      state.people = state.people.filter(x=>x.id!==p.id);
+      await apiPost('deletePerson',{id:p.id}); await persistDemo(); render();
+    };
+    pl.appendChild(el);
+  });
+
+  const prl = document.getElementById('projectsList');
+  prl.innerHTML = state.projects.length? '' : '<div class="empty-note">ยังไม่มีโปรเจกต์</div>';
+  state.projects.forEach(pr=>{
+    const el=document.createElement('div'); el.className='roster-item';
+    el.innerHTML = `<span class="swatch" style="background:${pr.color}"></span><span class="name">${escapeHtml(pr.name)}</span><button class="del" title="ลบ">×</button>`;
+    el.querySelector('.del').onclick=async()=>{
+      if(!confirm(`ลบโปรเจกต์ ${pr.name}?`))return;
+      state.projects = state.projects.filter(x=>x.id!==pr.id);
+      await apiPost('deleteProject',{id:pr.id}); await persistDemo(); render();
+    };
+    prl.appendChild(el);
+  });
+}
+function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+async function persistDemo(){ if(config.mode==='demo') await saveLocalData(); }
+
+/* ---------- Week helpers ---------- */
+function getWeeks(){
+  const weeks=[];
+  for(let i=0;i<WEEKS_SHOWN;i++) weeks.push(addDays(weekStart,i*7));
+  return weeks;
+}
+function weekAllocation(personId, weekDate){
+  const weekEnd = addDays(weekDate,6);
+  let total=0;
+  state.assignments.forEach(a=>{
+    if(a.personId!==personId) return;
+    const s=new Date(a.startDate), e=new Date(a.endDate);
+    if(s<=weekEnd && e>=weekDate) total += Number(a.allocationPercent)||0;
+  });
+  return total;
+}
+function gaugeColor(pct){
+  if(pct>100) return 'var(--coral)';
+  if(pct>=80) return 'var(--amber)';
+  if(pct>0) return 'var(--green)';
+  return 'var(--grid)';
+}
+
+/* ---------- Render: Capacity ---------- */
+function renderCapacity(){
+  const weeks = getWeeks();
+  document.getElementById('weekRange').textContent = shortLabel(weeks[0]) + ' – ' + shortLabel(addDays(weeks[weeks.length-1],6));
+  const el = document.getElementById('capacityView');
+  if(!state.people.length){ el.innerHTML='<div class="empty-note">เพิ่มคนในทีมจากแถบด้านซ้ายเพื่อเริ่มดู capacity</div>'; return; }
+
+  let html = `<div class="cap-grid" style="--wk:${weeks.length}">`;
+  html += `<div class="cap-row head"><div class="cap-cell" style="align-items:flex-start;justify-content:center;">TEAM</div>`;
+  weeks.forEach(w=>{ html += `<div class="cap-cell">${shortLabel(w)}</div>`; });
+  html += `</div>`;
+
+  state.people.forEach(p=>{
+    html += `<div class="cap-row"><div class="cap-name"><span class="swatch" style="background:#8A98A0"></span>${escapeHtml(p.name)}</div>`;
+    weeks.forEach(w=>{
+      const pct = weekAllocation(p.id,w);
+      const color = gaugeColor(pct);
+      const deg = Math.min(pct,150)/150*360;
+      html += `<div class="cap-cell">
+        <div class="gauge" style="background:conic-gradient(${color} ${deg}deg, var(--paper-2) ${deg}deg); color:${pct>0?'var(--ink)':'var(--ink-faint)'}">
+          <div style="position:absolute;width:19px;height:19px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:9px;">${pct}</div>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  });
+  html += `</div>`;
+  el.innerHTML = html;
+}
+
+/* ---------- Render: Timeline ---------- */
+function renderTimeline(){
+  const weeks = getWeeks();
+  const rangeStart = weeks[0], rangeEnd = addDays(weeks[weeks.length-1],7);
+  document.getElementById('weekRange').textContent = shortLabel(weeks[0]) + ' – ' + shortLabel(addDays(weeks[weeks.length-1],6));
+  const el = document.getElementById('timelineView');
+  if(!state.people.length){ el.innerHTML='<div class="empty-note">เพิ่มคนในทีมจากแถบด้านซ้ายเพื่อเริ่มดู timeline</div>'; return; }
+
+  let html = `<div class="tl-wrap" style="--wk:${weeks.length}">`;
+  html += `<div class="tl-header"><div>TEAM</div>`;
+  weeks.forEach(w=>{ html += `<div>${shortLabel(w)}</div>`; });
+  html += `</div>`;
+
+  state.people.forEach(p=>{
+    html += `<div class="tl-row"><div class="tl-name">${escapeHtml(p.name)}</div><div class="tl-track">`;
+    html += `<div class="tl-gridlines">`+weeks.map(()=>'<div></div>').join('')+`</div>`;
+    state.assignments.filter(a=>a.personId===p.id).forEach(a=>{
+      const s=new Date(a.startDate), e=addDays(new Date(a.endDate),1);
+      if(e<rangeStart || s>rangeEnd) return;
+      const totalMs = rangeEnd-rangeStart;
+      const left = Math.max(0,(s-rangeStart)/totalMs)*100;
+      const right = Math.min(100,(e-rangeStart)/totalMs*100);
+      const width = Math.max(right-left, 2);
+      const proj = state.projects.find(pr=>pr.id===a.projectId);
+      const color = proj?proj.color:'#8A98A0';
+      html += `<div class="tl-bar" data-id="${a.id}" style="left:${left}%;width:${width}%;background:${color};" title="${escapeHtml(proj?proj.name:'')} · ${a.allocationPercent}%">${escapeHtml(proj?proj.name:'')} · ${a.allocationPercent}%</div>`;
+    });
+    html += `</div></div>`;
+  });
+  html += `</div>`;
+  el.innerHTML = html;
+  el.querySelectorAll('.tl-bar').forEach(bar=>{
+    bar.onclick = ()=> openAssignmentModal(state.assignments.find(a=>a.id===bar.dataset.id));
+  });
+}
+
+function render(){
+  renderSidebar();
+  if(currentTab==='capacity') renderCapacity(); else renderTimeline();
+}
+
+/* ---------- Modals ---------- */
+function openModal(html){
+  const root=document.getElementById('modalRoot');
+  root.innerHTML = `<div class="overlay"><div class="modal">${html}</div></div>`;
+  root.querySelector('.overlay').addEventListener('click',(e)=>{ if(e.target.classList.contains('overlay')) closeModal(); });
+}
+function closeModal(){ document.getElementById('modalRoot').innerHTML=''; }
+
+document.getElementById('addPersonBtn').onclick = ()=>{
+  openModal(`
+    <h3>เพิ่มคนในทีม</h3>
+    <div class="field"><label>ชื่อ</label><input id="f_name" type="text" /></div>
+    <div class="field-row">
+      <div class="field"><label>บทบาท</label><input id="f_role" type="text" placeholder="เช่น Frontend" /></div>
+      <div class="field"><label>ชม./สัปดาห์</label><input id="f_hours" type="number" value="40" /></div>
+    </div>
+    <div class="modal-actions"><button class="btn btn-ghost" id="cancelBtn">ยกเลิก</button><button class="btn" id="saveBtn">บันทึก</button></div>
+  `);
+  document.getElementById('cancelBtn').onclick=closeModal;
+  document.getElementById('saveBtn').onclick=async()=>{
+    const name=document.getElementById('f_name').value.trim();
+    if(!name) return;
+    const p={id:uid(),name,role:document.getElementById('f_role').value.trim(),weeklyHours:Number(document.getElementById('f_hours').value)||40};
+    state.people.push(p);
+    closeModal(); render(); await persistDemo();
+    await apiPost('addPerson',{data:p});
+    toast('เพิ่มคนในทีมแล้ว');
+  };
+};
+
+document.getElementById('addProjectBtn').onclick = ()=>{
+  const colorOptions = PALETTE.map(c=>`<option value="${c}" style="background:${c}">${c}</option>`).join('');
+  openModal(`
+    <h3>เพิ่มโปรเจกต์</h3>
+    <div class="field"><label>ชื่อโปรเจกต์</label><input id="f_name" type="text" /></div>
+    <div class="field"><label>สี</label><select id="f_color">${colorOptions}</select></div>
+    <div class="modal-actions"><button class="btn btn-ghost" id="cancelBtn">ยกเลิก</button><button class="btn" id="saveBtn">บันทึก</button></div>
+  `);
+  document.getElementById('cancelBtn').onclick=closeModal;
+  document.getElementById('saveBtn').onclick=async()=>{
+    const name=document.getElementById('f_name').value.trim();
+    if(!name) return;
+    const pr={id:uid(),name,color:document.getElementById('f_color').value,status:'active'};
+    state.projects.push(pr);
+    closeModal(); render(); await persistDemo();
+    await apiPost('addProject',{data:pr});
+    toast('เพิ่มโปรเจกต์แล้ว');
+  };
+};
+
+document.getElementById('addAssignmentBtn').onclick = ()=> openAssignmentModal(null);
+
+function openAssignmentModal(existing){
+  if(!state.people.length || !state.projects.length){
+    toast('ต้องมีทั้งคนและโปรเจกต์อย่างน้อยอย่างละ 1 ก่อน'); return;
+  }
+  const peopleOpts = state.people.map(p=>`<option value="${p.id}" ${existing&&existing.personId===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('');
+  const projOpts = state.projects.map(pr=>`<option value="${pr.id}" ${existing&&existing.projectId===pr.id?'selected':''}>${escapeHtml(pr.name)}</option>`).join('');
+  const today = fmt(new Date());
+  openModal(`
+    <h3>${existing?'แก้ไข':'เพิ่ม'} Assignment</h3>
+    <div class="field"><label>คน</label><select id="f_person">${peopleOpts}</select></div>
+    <div class="field"><label>โปรเจกต์</label><select id="f_project">${projOpts}</select></div>
+    <div class="field-row">
+      <div class="field"><label>เริ่ม</label><input id="f_start" type="date" value="${existing?existing.startDate:today}" /></div>
+      <div class="field"><label>สิ้นสุด</label><input id="f_end" type="date" value="${existing?existing.endDate:fmt(addDays(new Date(),27))}" /></div>
+    </div>
+    <div class="field"><label>Allocation (%)</label><input id="f_alloc" type="number" value="${existing?existing.allocationPercent:50}" min="1" max="200" /></div>
+    <div class="modal-actions">
+      ${existing?'<button class="btn btn-danger" id="delBtn" style="margin-right:auto;">ลบ</button>':''}
+      <button class="btn btn-ghost" id="cancelBtn">ยกเลิก</button><button class="btn" id="saveBtn">บันทึก</button>
+    </div>
+  `);
+  document.getElementById('cancelBtn').onclick=closeModal;
+  if(existing){
+    document.getElementById('delBtn').onclick=async()=>{
+      state.assignments = state.assignments.filter(a=>a.id!==existing.id);
+      closeModal(); render(); await persistDemo();
+      await apiPost('deleteAssignment',{id:existing.id});
+      toast('ลบแล้ว');
+    };
+  }
+  document.getElementById('saveBtn').onclick=async()=>{
+    const data={
+      id: existing?existing.id:uid(),
+      personId:document.getElementById('f_person').value,
+      projectId:document.getElementById('f_project').value,
+      startDate:document.getElementById('f_start').value,
+      endDate:document.getElementById('f_end').value,
+      allocationPercent:Number(document.getElementById('f_alloc').value)||0,
+      note:''
+    };
+    if(new Date(data.endDate)<new Date(data.startDate)){ toast('วันสิ้นสุดต้องไม่ก่อนวันเริ่ม'); return; }
+    if(existing){
+      const idx=state.assignments.findIndex(a=>a.id===existing.id);
+      state.assignments[idx]=data;
+      closeModal(); render(); await persistDemo();
+      await apiPost('updateAssignment',{id:data.id,data});
+    }else{
+      state.assignments.push(data);
+      closeModal(); render(); await persistDemo();
+      await apiPost('addAssignment',{data});
+    }
+    toast('บันทึกแล้ว');
+  };
+}
+
+/* ---------- Boot ---------- */
+(async function init(){
+  const cfg = await loadConfig();
+  if(cfg && cfg.mode==='sheet' && cfg.url){
+    config = cfg;
+    try{ await bootApp(); }
+    catch(e){ document.getElementById('setup').style.display='flex'; }
+  } else if(cfg && cfg.mode==='demo'){
+    config = cfg;
+    const existing = await loadLocalData();
+    state = existing || (seedDemoData(), state);
+    await bootApp();
+  }
+})();
+</script>
+</body>
+</html>
