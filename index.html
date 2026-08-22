@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Capacity & Timeline Planner</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%231C2B33'/%3E%3Crect x='14' y='34' width='9' height='18' rx='1.5' fill='%234C8567'/%3E%3Crect x='27.5' y='22' width='9' height='30' rx='1.5' fill='%23D9922F'/%3E%3Crect x='41' y='12' width='9' height='40' rx='1.5' fill='%232F6F8F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -182,6 +183,8 @@
 
 <script>
 const PALETTE = ['#2F6F8F','#C85446','#D9922F','#4C8567','#7A5FA6','#3E7C8C','#B5654A','#5C7A3D'];
+// Google Sheet Web App URL is fixed here so visitors never see the setup screen.
+const FIXED_SHEET_URL = 'https://script.google.com/macros/s/AKfycbytAdbNgYBS2m2MCJPxv0WBhzcUA8oyGtgJGSDkrX6YMmoQjW97GNxzdjS4qxsbPoCh/exec';
 let state = { people: [], projects: [], assignments: [] };
 let config = { url: null, mode: null }; // mode: 'sheet' | 'demo'
 let currentTab = 'capacity';
@@ -195,20 +198,20 @@ function shortLabel(d){ return d.toLocaleDateString('th-TH',{day:'2-digit',month
 function uid(){ return 'id_'+Math.random().toString(36).slice(2,10)+Date.now().toString(36); }
 function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); }
 
-/* ---------- storage of config (persists browser session for this user) ---------- */
-async function loadConfig(){
-  try{ const r = await window.storage.get('capacity-planner-config', false); return r ? JSON.parse(r.value) : null; }
+/* ---------- storage of config (uses browser localStorage so it persists across visits) ---------- */
+function loadConfig(){
+  try{ const v = localStorage.getItem('capacity-planner-config'); return v ? JSON.parse(v) : null; }
   catch(e){ return null; }
 }
-async function saveConfig(cfg){
-  try{ await window.storage.set('capacity-planner-config', JSON.stringify(cfg), false); }catch(e){console.error(e);}
+function saveConfig(cfg){
+  try{ localStorage.setItem('capacity-planner-config', JSON.stringify(cfg)); }catch(e){console.error(e);}
 }
-async function loadLocalData(){
-  try{ const r = await window.storage.get('capacity-planner-demo-data', false); return r ? JSON.parse(r.value) : null; }
+function loadLocalData(){
+  try{ const v = localStorage.getItem('capacity-planner-demo-data'); return v ? JSON.parse(v) : null; }
   catch(e){ return null; }
 }
-async function saveLocalData(){
-  try{ await window.storage.set('capacity-planner-demo-data', JSON.stringify(state), false); }catch(e){console.error(e);}
+function saveLocalData(){
+  try{ localStorage.setItem('capacity-planner-demo-data', JSON.stringify(state)); }catch(e){console.error(e);}
 }
 
 /* ---------- Sheet API ---------- */
@@ -235,7 +238,7 @@ document.getElementById('connectBtn').onclick = async ()=>{
   const url = document.getElementById('urlInput').value.trim();
   const errEl = document.getElementById('setupError');
   errEl.style.display='none';
-  if(!url.startsWith('https://script.google.com/macros/s/AKfycbytAdbNgYBS2m2MCJPxv0WBhzcUA8oyGtgJGSDkrX6YMmoQjW97GNxzdjS4qxsbPoCh/exec')){
+  if(!url.startsWith('https://script.google.com/')){
     errEl.textContent = 'ใส่ Web App URL ที่ถูกต้องจาก Apps Script (ขึ้นต้นด้วย https://script.google.com/...)';
     errEl.style.display='block'; return;
   }
@@ -248,13 +251,13 @@ document.getElementById('connectBtn').onclick = async ()=>{
     errEl.style.display='block'; return;
   }
   config = {url, mode:'sheet'};
-  await saveConfig(config);
+  saveConfig(config);
   await bootApp();
 };
 document.getElementById('demoBtn').onclick = async ()=>{
   config = {url:null, mode:'demo'};
-  await saveConfig(config);
-  const existing = await loadLocalData();
+  saveConfig(config);
+  const existing = loadLocalData();
   if(existing) state = existing;
   else seedDemoData();
   await bootApp();
@@ -297,7 +300,7 @@ document.getElementById('refreshBtn').onclick = async ()=>{
 };
 document.getElementById('changeUrlBtn').onclick = async ()=>{
   config = {url:null, mode:null};
-  await saveConfig(config);
+  saveConfig(config);
   document.getElementById('app').classList.remove('active');
   document.getElementById('setup').style.display='flex';
 };
@@ -344,7 +347,7 @@ function renderSidebar(){
   });
 }
 function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
-async function persistDemo(){ if(config.mode==='demo') await saveLocalData(); }
+async function persistDemo(){ if(config.mode==='demo') saveLocalData(); }
 
 /* ---------- Week helpers ---------- */
 function getWeeks(){
@@ -548,18 +551,17 @@ function openAssignmentModal(existing){
 }
 
 /* ---------- Boot ---------- */
-(async function init(){
-  const cfg = await loadConfig();
-  if(cfg && cfg.mode==='sheet' && cfg.url){
-    config = cfg;
-    try{ await bootApp(); }
-    catch(e){ document.getElementById('setup').style.display='flex'; }
-  } else if(cfg && cfg.mode==='demo'){
-    config = cfg;
-    const existing = await loadLocalData();
-    state = existing || (seedDemoData(), state);
-    await bootApp();
-  }
+(function init(){
+  // Always connect straight to the fixed Google Sheet — no setup screen shown.
+  config = { url: FIXED_SHEET_URL, mode: 'sheet' };
+  saveConfig(config);
+  bootApp().catch(e=>{
+    document.getElementById('setup').style.display='flex';
+    const errEl = document.getElementById('setupError');
+    errEl.textContent = 'เชื่อมต่อ Google Sheet ไม่สำเร็จ: ' + e.message;
+    errEl.style.display='block';
+    document.getElementById('urlInput').value = FIXED_SHEET_URL;
+  });
 })();
 </script>
 </body>
