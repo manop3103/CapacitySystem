@@ -235,7 +235,7 @@ document.getElementById('connectBtn').onclick = async ()=>{
   const url = document.getElementById('urlInput').value.trim();
   const errEl = document.getElementById('setupError');
   errEl.style.display='none';
-  if(!url.startsWith('https://script.google.com/')){
+  if(!url.startsWith('https://script.google.com/macros/s/AKfycbytAdbNgYBS2m2MCJPxv0WBhzcUA8oyGtgJGSDkrX6YMmoQjW97GNxzdjS4qxsbPoCh/exec')){
     errEl.textContent = 'ใส่ Web App URL ที่ถูกต้องจาก Apps Script (ขึ้นต้นด้วย https://script.google.com/...)';
     errEl.style.display='block'; return;
   }
